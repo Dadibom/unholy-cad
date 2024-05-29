@@ -82,19 +82,35 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) drawGrid(screen *ebiten.Image) {
-	for x := -screenWidth * 2; x < screenWidth*2; x += gridSize {
-		if x%200 == 0 {
-			g.drawLine(screen, Vec2{float64(x), -screenHeight * 2}, Vec2{float64(x), screenHeight * 2}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
-		} else {
-			g.drawLine(screen, Vec2{float64(x), -screenHeight * 2}, Vec2{float64(x), screenHeight * 2}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
+	startX := int((g.camera.position.x)/gridSize) * gridSize
+	endX := int((g.camera.position.x+screenWidth/g.camera.scale)/gridSize)*gridSize + gridSize
+
+	startY := int((g.camera.position.y)/gridSize) * gridSize
+	endY := int((g.camera.position.y+screenHeight/g.camera.scale)/gridSize)*gridSize + gridSize
+
+	// Draw lighter grid lines first
+	for x := startX; x <= endX; x += gridSize {
+		if x%200 != 0 {
+			g.drawLine(screen, Vec2{float64(x), float64(startY)}, Vec2{float64(x), float64(endY)}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
 		}
 	}
 
-	for y := -screenHeight * 2; y < screenHeight*2; y += gridSize {
+	for y := startY; y <= endY; y += gridSize {
+		if y%200 != 0 {
+			g.drawLine(screen, Vec2{float64(startX), float64(y)}, Vec2{float64(endX), float64(y)}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
+		}
+	}
+
+	// Draw darker grid lines on top
+	for x := startX; x <= endX; x += gridSize {
+		if x%200 == 0 {
+			g.drawLine(screen, Vec2{float64(x), float64(startY)}, Vec2{float64(x), float64(endY)}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
+		}
+	}
+
+	for y := startY; y <= endY; y += gridSize {
 		if y%200 == 0 {
-			g.drawLine(screen, Vec2{-screenWidth * 2, float64(y)}, Vec2{screenWidth * 2, float64(y)}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
-		} else {
-			g.drawLine(screen, Vec2{-screenWidth * 2, float64(y)}, Vec2{screenWidth * 2, float64(y)}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
+			g.drawLine(screen, Vec2{float64(startX), float64(y)}, Vec2{float64(endX), float64(y)}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
 		}
 	}
 }
