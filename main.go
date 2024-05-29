@@ -355,6 +355,7 @@ func main() {
 			&SketchLine{startId: 3, endId: 0, id: 8},
 
 			&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
+			//&SketchConstraintLineLength{lineId: 8, length: 8, id: 12},
 			&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
 			&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
 		},

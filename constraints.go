@@ -60,7 +60,7 @@ func (c *SketchConstraintCornerAngle) isSatisfied(g *Game) bool {
 }
 
 func (c *SketchConstraintCornerAngle) getBranches() int {
-	if (c.angle == 90) {
+	if (c.angle == 90) { // @TODO support other angles
 		return 4
 	}
 	return 2
