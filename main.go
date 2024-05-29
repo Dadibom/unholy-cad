@@ -27,12 +27,13 @@ type Game struct {
 	lastMousePos Vec2
 	isDragging   bool
 
-	sketch 	 	[]SketchElement
+	sketch 	 	Sketch
 }
 
 type SketchElement interface {
 	getId() int
 	draw(g *Game, screen *ebiten.Image, camera Camera)
+	clone() SketchElement
 }
 
 
@@ -40,6 +41,14 @@ type SketchLine struct {
 	id int
 	startId int
 	endId int
+}
+
+func (l *SketchLine) clone() SketchElement {
+	return &SketchLine{
+		id: l.id,
+		startId: l.startId,
+		endId: l.endId,
+	}
 }
 
 func (l *SketchLine) draw(g *Game, screen *ebiten.Image, camera Camera) {
@@ -64,6 +73,13 @@ type SketchPoint struct {
 	position Vec2
 }
 
+func (p *SketchPoint) clone() SketchElement {
+	return &SketchPoint{
+		id: p.id,
+		position: p.position.clone(),
+	}
+}
+
 func (p *SketchPoint) draw(g *Game, screen *ebiten.Image, camera Camera) {
 	g.drawCircle(screen, p.position, float32(3), color.RGBA{0x33, 0x99, 0xff, 0xFF}, camera)
 }
@@ -73,8 +89,17 @@ func (p *SketchPoint) getId() int {
 }
 
 func (g *Game) Update() error {
-	if ebiten.IsKeyPressed(ebiten.KeySpace) {
-		applySketchConstraints(g)
+	if ebiten.IsKeyPressed(ebiten.KeyZ) {
+		g.sketch.attemptApplyConstraints(g)
+	}
+	// randomly move the position of the point on x key press
+	if ebiten.IsKeyPressed(ebiten.KeyX) {
+		for _, element := range g.sketch.elements {
+			if point, ok := element.(*SketchPoint); ok {
+				point.position.x += rand.Float64() * 2 - 1
+				point.position.y += rand.Float64() * 2 - 1
+			}
+		}
 	}
 	
 	mouseX, mouseY := ebiten.CursorPosition()
@@ -126,7 +151,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xFF, 0xFF, 0xFF, 0xFF})
 	g.drawGrid(screen)
 
-	for _, element := range g.sketch {
+	for _, element := range g.sketch.elements {
 		element.draw(g, screen, g.camera)
 	}
 }
@@ -177,7 +202,7 @@ func (c *Camera) transformPoint(p Vec2) Vec2 {
 
 func getSketchElementByID[T SketchElement](g *Game, id int) (T, error) {
     var zero T
-    for _, element := range g.sketch {
+    for _, element := range g.sketch.elements {
         if element.getId() == id {
             if specificElement, ok := element.(T); ok {
                 return specificElement, nil
@@ -263,16 +288,26 @@ func StrokeLine(screen *ebiten.Image, p1, p2 Vec2, thickness float32, c color.Co
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), thickness, c, true)
 }
 
-func applySketchConstraints (g *Game) {
+type Sketch struct {
+	elements []SketchElement
+	constraints []SketchConstraint
+}
+
+func (s *Sketch) getClonedElements() []SketchElement {
+	elements := make([]SketchElement, len(s.elements))
+	for i, element := range s.elements {
+		elements[i] = element.clone()
+	}
+	return elements
+}
+
+func (s *Sketch) attemptApplyConstraints (g *Game) {
 	log.Printf("Applying constraints")
 
 	// deep clone the sketch
-	sketchCopy := make([]SketchElement, len(g.sketch))
-	for i, element := range g.sketch {
-		sketchCopy[i] = element
-	}
+	originalElements := s.getClonedElements()
 
-	for _, element := range g.sketch {
+	for _, element := range s.elements {
 		if constraint, ok := element.(SketchConstraint); ok {
 			if constraint.isSatisfied(g) {
 				continue
@@ -287,14 +322,14 @@ func applySketchConstraints (g *Game) {
 	}
 
 	// check if any constraints are violated
-	for _, element := range g.sketch {
+	for _, element := range s.elements {
 		if constraint, ok := element.(SketchConstraint); ok {
 			if !constraint.isSatisfied(g) {
 				// log error
-				log.Printf("Constraints could not satisfied")
+				log.Printf("Constraints could not satisfied, reverting")
 				
 				// revert to the previous state
-				g.sketch = sketchCopy
+				s.elements = originalElements
 				return
 			}
 		}
@@ -306,21 +341,23 @@ func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Unholy CAD")
 
-	sketch := []SketchElement{
-		&SketchPoint{position: Vec2{1, 1}, id: 0},
-		&SketchPoint{position: Vec2{1, 10}, id: 1},
-		&SketchPoint{position: Vec2{10, 10}, id: 2},
-		&SketchPoint{position: Vec2{10, 1}, id: 3},
-		&SketchPoint{position: Vec2{5, 5}, id: 4},
+	sketch := Sketch{
+		elements: []SketchElement{
+			&SketchPoint{position: Vec2{1, 1}, id: 0},
+			&SketchPoint{position: Vec2{1, 10}, id: 1},
+			&SketchPoint{position: Vec2{10, 10}, id: 2},
+			&SketchPoint{position: Vec2{10, 1}, id: 3},
+			&SketchPoint{position: Vec2{5, 5}, id: 4},
+	
+			&SketchLine{startId: 0, endId: 1, id: 5},
+			&SketchLine{startId: 1, endId: 2, id: 6},
+			&SketchLine{startId: 2, endId: 3, id: 7},
+			&SketchLine{startId: 3, endId: 0, id: 8},
 
-		&SketchLine{startId: 0, endId: 1, id: 5},
-		&SketchLine{startId: 1, endId: 2, id: 6},
-		&SketchLine{startId: 2, endId: 3, id: 7},
-		&SketchLine{startId: 3, endId: 0, id: 8},
-
-		&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
-		&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
-		&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
+			&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
+			&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
+			&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
+		},
 	}
 
 	if err := ebiten.RunGame(&Game{

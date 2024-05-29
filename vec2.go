@@ -90,3 +90,10 @@ func (v Vec2) tangent() Vec2 {
 		y: v.x,
 	}
 }
+
+func (v Vec2) clone() Vec2 {
+	return Vec2{
+		x: v.x,
+		y: v.y,
+	}
+}

@@ -15,9 +15,6 @@ type SketchConstraint interface {
 	isSatisfied(g *Game) bool
 }
 
-
-
-
 type SketchConstraintCornerAngle struct {
 	id int
 	cornerPointId int
@@ -26,10 +23,15 @@ type SketchConstraintCornerAngle struct {
 	angle float64
 }
 
-func (c *SketchConstraintCornerAngle) getBranches() int {
-	return 2
+func (c *SketchConstraintCornerAngle) clone() SketchElement {
+	return &SketchConstraintCornerAngle{
+		id: c.id,
+		cornerPointId: c.cornerPointId,
+		linePoint1Id: c.linePoint1Id,
+		linePoint2Id: c.linePoint2Id,
+		angle: c.angle,
+	}
 }
-
 func (c *SketchConstraintCornerAngle) GetCurrentAngle(g *Game) float64 {
 	cornerPoint, err := getSketchElementByID[*SketchPoint](g, c.cornerPointId)
 	if err != nil {
@@ -57,6 +59,13 @@ func (c *SketchConstraintCornerAngle) isSatisfied(g *Game) bool {
 	return isNearZero(c.GetCurrentAngle(g) - c.angle)
 }
 
+func (c *SketchConstraintCornerAngle) getBranches() int {
+	if (c.angle == 90) {
+		return 4
+	}
+	return 2
+}
+
 func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 	cornerPoint, err := getSketchElementByID[*SketchPoint](g, c.cornerPointId)
 	if err != nil {
@@ -76,15 +85,33 @@ func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 	currentAngle := c.GetCurrentAngle(g)
 	offset := c.angle - currentAngle
 
-	pointToRotate := linePoint1
-	if branch == 1 {
-		pointToRotate = linePoint2
-		offset = -offset
+	if branch == 0 || branch == 1 {
+		pointToRotate := linePoint1
+		if branch == 1 {
+			pointToRotate = linePoint2
+			offset = -offset
+		}
+
+		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset * math.Pi / 180)
+	} else { // branch 2 and 3, move corner along one of the lines to reach 90 degrees
+		o1 := linePoint1.position.sub(cornerPoint.position)
+		o2 := linePoint2.position.sub(cornerPoint.position)
+		if branch == 2 {
+			// move corner along line1
+			mag := o2.dot(o1.normalize())
+			if mag <= o1.magnitude() {
+				//return false
+			}
+			cornerPoint.position = cornerPoint.position.add(o1.normalize().mul(mag))
+		} else {
+			// move corner along line2
+			mag := o1.dot(o2.normalize())
+			if mag <= o2.magnitude() {
+				//return false
+			}
+			cornerPoint.position = cornerPoint.position.add(o2.normalize().mul(mag))
+		}
 	}
-
-	pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset * math.Pi / 180)
-
-	// @TODO implement branches 2 and 3 which alters the length of either lines
 
 	return true
 }
@@ -140,6 +167,14 @@ type SketchConstraintLineLength struct {
 	id int
 	lineId int
 	length float64
+}
+
+func (c *SketchConstraintLineLength) clone() SketchElement {
+	return &SketchConstraintLineLength{
+		id: c.id,
+		lineId: c.lineId,
+		length: c.length,
+	}
 }
 
 func isNearZero (v float64) bool {
