@@ -3,6 +3,7 @@ package main
 import (
 	"image/color"
 	"log"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -11,12 +12,25 @@ import (
 const (
 	screenWidth  = 800
 	screenHeight = 600
-	gridSize     = 20
+	gridSize     = 1
 )
 
 type Vec2 struct {
 	x float64
 	y float64
+}
+
+func (v Vec2) distanceTo(other Vec2) float64 {
+	dx := v.x - other.x
+	dy := v.y - other.y
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
+func (v Vec2) lerp(other Vec2, t float64) Vec2 {
+	return Vec2{
+		x: v.x + (other.x-v.x)*t,
+		y: v.y + (other.y-v.y)*t,
+	}
 }
 
 type Camera struct {
@@ -79,6 +93,9 @@ func (g *Game) zoom(mousePos Vec2, scrollAmount float64) {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xFF, 0xFF, 0xFF, 0xFF})
 	g.drawGrid(screen)
+
+	g.drawLine(screen, Vec2{1, 1}, Vec2{5, 2}, color.RGBA{0x33, 0x99, 0xff, 0xFF}, g.camera)
+	g.drawConstructionLine(screen, Vec2{1, 2}, Vec2{5, 3}, color.RGBA{0xFF, 0x99, 0x33, 0xFF}, g.camera)
 }
 
 func (g *Game) drawGrid(screen *ebiten.Image) {
@@ -130,6 +147,37 @@ func (g *Game) drawLine(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), 1, c, true)
 }
 
+func (g *Game) drawConstructionLine(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera) {
+	p1 = camera.transformPoint(p1)
+	p2 = camera.transformPoint(p2)
+
+	// Dashed line parameters
+	dashLength := 10.0
+	spaceLength := 10.0
+
+	// Calculate the total distance between the points
+	totalDistance := p1.distanceTo(p2)
+
+	// Calculate the unit vector in the direction of the line
+	unitVector := Vec2{
+		x: (p2.x - p1.x) / totalDistance,
+		y: (p2.y - p1.y) / totalDistance,
+	}
+
+	// Iterate over the total distance, drawing dashes and leaving spaces
+	for distance := 0.0; distance < totalDistance; distance += dashLength + spaceLength {
+		start := Vec2{
+			x: p1.x + unitVector.x*distance,
+			y: p1.y + unitVector.y*distance,
+		}
+		end := Vec2{
+			x: p1.x + unitVector.x*math.Min(distance+dashLength, totalDistance),
+			y: p1.y + unitVector.y*math.Min(distance+dashLength, totalDistance),
+		}
+		vector.StrokeLine(screen, float32(start.x), float32(start.y), float32(end.x), float32(end.y), 2, c, true)
+	}
+}
+
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
@@ -140,7 +188,7 @@ func main() {
 	if err := ebiten.RunGame(&Game{
 		camera: Camera{
 			position: Vec2{0, 0},
-			scale:    1,
+			scale:    20,
 		},
 	}); err != nil {
 		log.Fatal(err)
