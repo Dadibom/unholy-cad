@@ -82,34 +82,36 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) drawGrid(screen *ebiten.Image) {
-	startX := int((g.camera.position.x)/gridSize) * gridSize
+	startX := int((g.camera.position.x)/gridSize)*gridSize - gridSize
 	endX := int((g.camera.position.x+screenWidth/g.camera.scale)/gridSize)*gridSize + gridSize
 
-	startY := int((g.camera.position.y)/gridSize) * gridSize
+	startY := int((g.camera.position.y)/gridSize)*gridSize - gridSize
 	endY := int((g.camera.position.y+screenHeight/g.camera.scale)/gridSize)*gridSize + gridSize
+
+	thickLineInterval := gridSize * 5
 
 	// Draw lighter grid lines first
 	for x := startX; x <= endX; x += gridSize {
-		if x%200 != 0 {
+		if x%thickLineInterval != 0 {
 			g.drawLine(screen, Vec2{float64(x), float64(startY)}, Vec2{float64(x), float64(endY)}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
 		}
 	}
 
 	for y := startY; y <= endY; y += gridSize {
-		if y%200 != 0 {
+		if y%thickLineInterval != 0 {
 			g.drawLine(screen, Vec2{float64(startX), float64(y)}, Vec2{float64(endX), float64(y)}, color.RGBA{0xee, 0xee, 0xee, 0xFF}, g.camera)
 		}
 	}
 
 	// Draw darker grid lines on top
 	for x := startX; x <= endX; x += gridSize {
-		if x%200 == 0 {
+		if x%thickLineInterval == 0 {
 			g.drawLine(screen, Vec2{float64(x), float64(startY)}, Vec2{float64(x), float64(endY)}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
 		}
 	}
 
 	for y := startY; y <= endY; y += gridSize {
-		if y%200 == 0 {
+		if y%thickLineInterval == 0 {
 			g.drawLine(screen, Vec2{float64(startX), float64(y)}, Vec2{float64(endX), float64(y)}, color.RGBA{0xbb, 0xbb, 0xbb, 0xFF}, g.camera)
 		}
 	}
