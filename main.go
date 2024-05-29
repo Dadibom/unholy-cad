@@ -4,6 +4,8 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"errors"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -15,24 +17,6 @@ const (
 	gridSize     = 1
 )
 
-type Vec2 struct {
-	x float64
-	y float64
-}
-
-func (v Vec2) distanceTo(other Vec2) float64 {
-	dx := v.x - other.x
-	dy := v.y - other.y
-	return math.Sqrt(dx*dx + dy*dy)
-}
-
-func (v Vec2) lerp(other Vec2, t float64) Vec2 {
-	return Vec2{
-		x: v.x + (other.x-v.x)*t,
-		y: v.y + (other.y-v.y)*t,
-	}
-}
-
 type Camera struct {
 	position Vec2
 	scale    float64
@@ -42,9 +26,57 @@ type Game struct {
 	camera       Camera
 	lastMousePos Vec2
 	isDragging   bool
+
+	sketch 	 	[]SketchElement
+}
+
+type SketchElement interface {
+	getId() int
+	draw(g *Game, screen *ebiten.Image, camera Camera)
+}
+
+
+type SketchLine struct {
+	id int
+	startId int
+	endId int
+}
+
+func (l *SketchLine) draw(g *Game, screen *ebiten.Image, camera Camera) {
+	startPoint, err := getSketchElementByID[*SketchPoint](g, l.startId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	endPoint, err := getSketchElementByID[*SketchPoint](g, l.endId)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g.drawLineWithThickness(screen, endPoint.position, startPoint.position, color.RGBA{0x33, 0x99, 0xff, 0xFF}, camera, 2)
+}
+
+func (l *SketchLine) getId() int {
+	return l.id
+}
+
+type SketchPoint struct {
+	id int
+	position Vec2
+}
+
+func (p *SketchPoint) draw(g *Game, screen *ebiten.Image, camera Camera) {
+	g.drawCircle(screen, p.position, float32(3), color.RGBA{0x33, 0x99, 0xff, 0xFF}, camera)
+}
+
+func (p *SketchPoint) getId() int {
+	return p.id
 }
 
 func (g *Game) Update() error {
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		applySketchConstraints(g)
+	}
+	
 	mouseX, mouseY := ebiten.CursorPosition()
 	mouseVec := Vec2{float64(mouseX), float64(mouseY)}
 
@@ -94,8 +126,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xFF, 0xFF, 0xFF, 0xFF})
 	g.drawGrid(screen)
 
-	g.drawLine(screen, Vec2{1, 1}, Vec2{5, 2}, color.RGBA{0x33, 0x99, 0xff, 0xFF}, g.camera)
-	g.drawConstructionLine(screen, Vec2{1, 2}, Vec2{5, 3}, color.RGBA{0xFF, 0x99, 0x33, 0xFF}, g.camera)
+	for _, element := range g.sketch {
+		element.draw(g, screen, g.camera)
+	}
 }
 
 func (g *Game) drawGrid(screen *ebiten.Image) {
@@ -135,16 +168,59 @@ func (g *Game) drawGrid(screen *ebiten.Image) {
 }
 
 func (c *Camera) transformPoint(p Vec2) Vec2 {
+	// round to avoid subpixel rendering
 	return Vec2{
-		x: (p.x - c.position.x) * c.scale,
-		y: (p.y - c.position.y) * c.scale,
+		x: math.Round((p.x-c.position.x)*c.scale),
+		y: math.Round((p.y-c.position.y)*c.scale),
 	}
 }
 
+func getSketchElementByID[T SketchElement](g *Game, id int) (T, error) {
+    var zero T
+    for _, element := range g.sketch {
+        if element.getId() == id {
+            if specificElement, ok := element.(T); ok {
+                return specificElement, nil
+            }
+        }
+    }
+    return zero, errors.New("element not found or type mismatch")
+}
+
 func (g *Game) drawLine(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera) {
+	g.drawLineWithThickness(screen, p1, p2, c, camera, 1)
+}
+
+func (g *Game) drawLineWithThickness(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera, thickness float32) {
 	p1 = camera.transformPoint(p1)
 	p2 = camera.transformPoint(p2)
+	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), thickness, c, true)
+}
+
+func (g *Game) drawArrow(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera) {
+	direction := p2.sub(p1).normalize()
+	tangent := direction.tangent().normalize()
+
+	headWidth := 4.0
+	headLength := 10.0
+
+
+	// Draw the line
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), 1, c, true)
+
+	arrowHeadBase := p2.sub(direction.mul(headLength))
+	arrowHeadLeft := arrowHeadBase.add(tangent.mul(headWidth))
+	arrowHeadRight := arrowHeadBase.sub(tangent.mul(headWidth))
+
+	vector.StrokeLine(screen, float32(p2.x), float32(p2.y), float32(arrowHeadLeft.x), float32(arrowHeadLeft.y), 1, c, true)
+	vector.StrokeLine(screen, float32(p2.x), float32(p2.y), float32(arrowHeadRight.x), float32(arrowHeadRight.y), 1, c, true)	
+}
+
+
+
+func (g *Game) drawCircle(screen *ebiten.Image, p Vec2, radius float32, c color.Color, camera Camera) {
+	p = camera.transformPoint(p)
+	vector.StrokeCircle(screen, float32(p.x), float32(p.y), radius, 1, c, true)
 }
 
 func (g *Game) drawConstructionLine(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera) {
@@ -182,14 +258,77 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
+
+func StrokeLine(screen *ebiten.Image, p1, p2 Vec2, thickness float32, c color.Color) {
+	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), thickness, c, true)
+}
+
+func applySketchConstraints (g *Game) {
+	log.Printf("Applying constraints")
+
+	// deep clone the sketch
+	sketchCopy := make([]SketchElement, len(g.sketch))
+	for i, element := range g.sketch {
+		sketchCopy[i] = element
+	}
+
+	for _, element := range g.sketch {
+		if constraint, ok := element.(SketchConstraint); ok {
+			if constraint.isSatisfied(g) {
+				continue
+			}
+			possibleBranches := constraint.getBranches()
+			// pick a random branch
+			branch := int(math.Floor(rand.Float64() * float64(possibleBranches)))
+
+			log.Printf("Applying constraint %d with branch %d", constraint.getId(), branch)
+			constraint.apply(g, branch)
+		}
+	}
+
+	// check if any constraints are violated
+	for _, element := range g.sketch {
+		if constraint, ok := element.(SketchConstraint); ok {
+			if !constraint.isSatisfied(g) {
+				// log error
+				log.Printf("Constraints could not satisfied")
+				
+				// revert to the previous state
+				g.sketch = sketchCopy
+				return
+			}
+		}
+	}
+
+}
+
 func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Unholy CAD")
+
+	sketch := []SketchElement{
+		&SketchPoint{position: Vec2{1, 1}, id: 0},
+		&SketchPoint{position: Vec2{1, 10}, id: 1},
+		&SketchPoint{position: Vec2{10, 10}, id: 2},
+		&SketchPoint{position: Vec2{10, 1}, id: 3},
+		&SketchPoint{position: Vec2{5, 5}, id: 4},
+
+		&SketchLine{startId: 0, endId: 1, id: 5},
+		&SketchLine{startId: 1, endId: 2, id: 6},
+		&SketchLine{startId: 2, endId: 3, id: 7},
+		&SketchLine{startId: 3, endId: 0, id: 8},
+
+		&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
+		&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
+		&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
+	}
+
 	if err := ebiten.RunGame(&Game{
 		camera: Camera{
 			position: Vec2{0, 0},
 			scale:    20,
 		},
+		sketch: sketch,
 	}); err != nil {
 		log.Fatal(err)
 	}
