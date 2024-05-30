@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
 	"image/color"
 	"log"
 	"math"
-	"errors"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,7 +27,7 @@ type Game struct {
 	lastMousePos Vec2
 	isDragging   bool
 
-	sketch 	 	Sketch
+	sketch Sketch
 }
 
 type SketchElement interface {
@@ -36,18 +36,17 @@ type SketchElement interface {
 	clone() SketchElement
 }
 
-
 type SketchLine struct {
-	id int
+	id      int
 	startId int
-	endId int
+	endId   int
 }
 
 func (l *SketchLine) clone() SketchElement {
 	return &SketchLine{
-		id: l.id,
+		id:      l.id,
 		startId: l.startId,
-		endId: l.endId,
+		endId:   l.endId,
 	}
 }
 
@@ -69,13 +68,13 @@ func (l *SketchLine) getId() int {
 }
 
 type SketchPoint struct {
-	id int
+	id       int
 	position Vec2
 }
 
 func (p *SketchPoint) clone() SketchElement {
 	return &SketchPoint{
-		id: p.id,
+		id:       p.id,
 		position: p.position.clone(),
 	}
 }
@@ -96,12 +95,12 @@ func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyX) {
 		for _, element := range g.sketch.elements {
 			if point, ok := element.(*SketchPoint); ok {
-				point.position.x += rand.Float64() * 2 - 1
-				point.position.y += rand.Float64() * 2 - 1
+				point.position.x += rand.Float64()*2 - 1
+				point.position.y += rand.Float64()*2 - 1
 			}
 		}
 	}
-	
+
 	mouseX, mouseY := ebiten.CursorPosition()
 	mouseVec := Vec2{float64(mouseX), float64(mouseY)}
 
@@ -195,21 +194,21 @@ func (g *Game) drawGrid(screen *ebiten.Image) {
 func (c *Camera) transformPoint(p Vec2) Vec2 {
 	// round to avoid subpixel rendering
 	return Vec2{
-		x: math.Round((p.x-c.position.x)*c.scale),
-		y: math.Round((p.y-c.position.y)*c.scale),
+		x: math.Round((p.x - c.position.x) * c.scale),
+		y: math.Round((p.y - c.position.y) * c.scale),
 	}
 }
 
 func getSketchElementByID[T SketchElement](g *Game, id int) (T, error) {
-    var zero T
-    for _, element := range g.sketch.elements {
-        if element.getId() == id {
-            if specificElement, ok := element.(T); ok {
-                return specificElement, nil
-            }
-        }
-    }
-    return zero, errors.New("element not found or type mismatch")
+	var zero T
+	for _, element := range g.sketch.elements {
+		if element.getId() == id {
+			if specificElement, ok := element.(T); ok {
+				return specificElement, nil
+			}
+		}
+	}
+	return zero, errors.New("element not found or type mismatch")
 }
 
 func (g *Game) drawLine(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camera Camera) {
@@ -229,7 +228,6 @@ func (g *Game) drawArrow(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camer
 	headWidth := 4.0
 	headLength := 10.0
 
-
 	// Draw the line
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), 1, c, true)
 
@@ -238,10 +236,8 @@ func (g *Game) drawArrow(screen *ebiten.Image, p1, p2 Vec2, c color.Color, camer
 	arrowHeadRight := arrowHeadBase.sub(tangent.mul(headWidth))
 
 	vector.StrokeLine(screen, float32(p2.x), float32(p2.y), float32(arrowHeadLeft.x), float32(arrowHeadLeft.y), 1, c, true)
-	vector.StrokeLine(screen, float32(p2.x), float32(p2.y), float32(arrowHeadRight.x), float32(arrowHeadRight.y), 1, c, true)	
+	vector.StrokeLine(screen, float32(p2.x), float32(p2.y), float32(arrowHeadRight.x), float32(arrowHeadRight.y), 1, c, true)
 }
-
-
 
 func (g *Game) drawCircle(screen *ebiten.Image, p Vec2, radius float32, c color.Color, camera Camera) {
 	p = camera.transformPoint(p)
@@ -283,13 +279,12 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-
 func StrokeLine(screen *ebiten.Image, p1, p2 Vec2, thickness float32, c color.Color) {
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), thickness, c, true)
 }
 
 type Sketch struct {
-	elements []SketchElement
+	elements    []SketchElement
 	constraints []SketchConstraint
 }
 
@@ -301,40 +296,92 @@ func (s *Sketch) getClonedElements() []SketchElement {
 	return elements
 }
 
-func (s *Sketch) attemptApplyConstraints (g *Game) {
-	log.Printf("Applying constraints")
-
-	// deep clone the sketch
-	originalElements := s.getClonedElements()
-
+func (s *Sketch) getConstraints() []SketchConstraint {
+	constraints := make([]SketchConstraint, 0)
 	for _, element := range s.elements {
 		if constraint, ok := element.(SketchConstraint); ok {
+			constraints = append(constraints, constraint)
+		}
+	}
+	return constraints
+}
+
+func (s *Sketch) attemptApplyConstraints(g *Game) {
+	constraints := s.getConstraints()
+
+	// int array to store the number of branches for each constraint
+	branches := make([]int, len(constraints))
+	currentBranches := make([]int, len(constraints))
+
+	totalBrahchCombinations := 1
+
+	allConstraintsSatisfied := true
+
+	// get the number of branches for each constraint
+	for i, constraint := range constraints {
+		branches[i] = constraint.getBranches()
+		totalBrahchCombinations *= branches[i]
+		currentBranches[i] = 0
+		if allConstraintsSatisfied && !constraint.isSatisfied(g) {
+			allConstraintsSatisfied = false
+		}
+	}
+
+	if allConstraintsSatisfied {
+		log.Printf("Constraints already satisfied")
+		return
+	}
+
+	attempts := 0
+
+	log.Printf("Attempting to satisfy constraints with %d possible solutions", totalBrahchCombinations)
+
+	for !allConstraintsSatisfied {
+		attempts++
+		// deep clone the sketch
+		originalElements := s.getClonedElements()
+
+		for i, constraint := range constraints {
 			if constraint.isSatisfied(g) {
 				continue
 			}
-			possibleBranches := constraint.getBranches()
-			// pick a random branch
-			branch := int(math.Floor(rand.Float64() * float64(possibleBranches)))
-
-			log.Printf("Applying constraint %d with branch %d", constraint.getId(), branch)
+			branch := currentBranches[i]
+			//log.Printf("Applying constraint %d with branch %d", constraint.getId(), branch)
 			constraint.apply(g, branch)
 		}
-	}
 
-	// check if any constraints are violated
-	for _, element := range s.elements {
-		if constraint, ok := element.(SketchConstraint); ok {
+		// check if any constraints are violated
+		allConstraintsSatisfied = true
+		for _, constraint := range constraints {
 			if !constraint.isSatisfied(g) {
 				// log error
-				log.Printf("Constraints could not satisfied, reverting")
-				
+				//log.Printf("Constraints could not satisfied, reverting")
+
 				// revert to the previous state
 				s.elements = originalElements
-				return
+				allConstraintsSatisfied = false
+				break
 			}
 		}
-	}
+		if allConstraintsSatisfied {
+			log.Printf("\u2713 Constraints satisfied after %d attempts", attempts)
+			return
+		}
 
+		i := 0
+
+		currentBranches[i]++
+		for currentBranches[i] >= branches[i] {
+			currentBranches[i] = 0
+			i++
+			if i >= len(currentBranches) {
+				log.Printf("\u2717 No solution found after %d attempts", attempts)
+				return
+			}
+			currentBranches[i]++
+		}
+
+	}
 }
 
 func main() {
@@ -348,7 +395,7 @@ func main() {
 			&SketchPoint{position: Vec2{10, 10}, id: 2},
 			&SketchPoint{position: Vec2{10, 1}, id: 3},
 			&SketchPoint{position: Vec2{5, 5}, id: 4},
-	
+
 			&SketchLine{startId: 0, endId: 1, id: 5},
 			&SketchLine{startId: 1, endId: 2, id: 6},
 			&SketchLine{startId: 2, endId: 3, id: 7},

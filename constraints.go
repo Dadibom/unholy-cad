@@ -16,20 +16,20 @@ type SketchConstraint interface {
 }
 
 type SketchConstraintCornerAngle struct {
-	id int
+	id            int
 	cornerPointId int
-	linePoint1Id int
-	linePoint2Id int
-	angle float64
+	linePoint1Id  int
+	linePoint2Id  int
+	angle         float64
 }
 
 func (c *SketchConstraintCornerAngle) clone() SketchElement {
 	return &SketchConstraintCornerAngle{
-		id: c.id,
+		id:            c.id,
 		cornerPointId: c.cornerPointId,
-		linePoint1Id: c.linePoint1Id,
-		linePoint2Id: c.linePoint2Id,
-		angle: c.angle,
+		linePoint1Id:  c.linePoint1Id,
+		linePoint2Id:  c.linePoint2Id,
+		angle:         c.angle,
 	}
 }
 func (c *SketchConstraintCornerAngle) GetCurrentAngle(g *Game) float64 {
@@ -60,7 +60,7 @@ func (c *SketchConstraintCornerAngle) isSatisfied(g *Game) bool {
 }
 
 func (c *SketchConstraintCornerAngle) getBranches() int {
-	if (c.angle == 90) { // @TODO support other angles
+	if c.angle == 90 { // @TODO support other angles
 		return 4
 	}
 	return 2
@@ -92,7 +92,7 @@ func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 			offset = -offset
 		}
 
-		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset * math.Pi / 180)
+		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset*math.Pi/180)
 	} else { // branch 2 and 3, move corner along one of the lines to reach 90 degrees
 		o1 := linePoint1.position.sub(cornerPoint.position)
 		o2 := linePoint2.position.sub(cornerPoint.position)
@@ -158,26 +158,21 @@ func (c *SketchConstraintCornerAngle) draw(g *Game, screen *ebiten.Image, camera
 	}
 }
 
-
-
-
-
-
 type SketchConstraintLineLength struct {
-	id int
+	id     int
 	lineId int
 	length float64
 }
 
 func (c *SketchConstraintLineLength) clone() SketchElement {
 	return &SketchConstraintLineLength{
-		id: c.id,
+		id:     c.id,
 		lineId: c.lineId,
 		length: c.length,
 	}
 }
 
-func isNearZero (v float64) bool {
+func isNearZero(v float64) bool {
 	return math.Abs(v) < 0.00001
 }
 
@@ -216,10 +211,10 @@ func (c *SketchConstraintLineLength) apply(g *Game, branch int) bool {
 
 	currentLength := startPoint.position.distanceTo(endPoint.position)
 	t := c.length / currentLength
-	
+
 	if branch == 0 { // Move endPoint
 		endPoint.position = startPoint.position.lerp(endPoint.position, t)
-	} else { // Move startPoint
+	} else if branch == 1 { // Move startPoint
 		startPoint.position = endPoint.position.lerp(startPoint.position, t)
 	}
 
@@ -254,8 +249,8 @@ func (c *SketchConstraintLineLength) draw(g *Game, screen *ebiten.Image, camera 
 
 	offset := 12.0
 
-	StrokeLine(screen, startPosition, startPosition.add(tangent.mul(offset + 5)), 1, col)
-	StrokeLine(screen, endPosition, endPosition.add(tangent.mul(offset + 5)), 1, col)
+	StrokeLine(screen, startPosition, startPosition.add(tangent.mul(offset+5)), 1, col)
+	StrokeLine(screen, endPosition, endPosition.add(tangent.mul(offset+5)), 1, col)
 
 	startPosition = startPosition.add(tangent)
 	endPosition = endPosition.add(tangent)
