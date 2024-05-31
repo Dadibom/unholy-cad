@@ -448,10 +448,10 @@ func main() {
 			&SketchLine{startId: 1, endId: 2, id: 4},
 			&SketchLine{startId: 2, endId: 0, id: 5},
 
-			&SketchConstraintLineLength{lineId: 3, length: 6, id: 6},
+			///&SketchConstraintLineLength{lineId: 3, length: 6, id: 6},
 			&SketchConstraintCornerAngle{cornerPointId: 0, linePoint1Id: 2, linePoint2Id: 1, angle: 60, id: 7},
-			//&SketchConstraintCornerAngle{cornerPointId: 1, linePoint1Id: 0, linePoint2Id: 2, angle: 60, id: 8},
-			//&SketchConstraintLineLength{lineId: 4, length: 6, id: 9},
+			&SketchConstraintCornerAngle{cornerPointId: 1, linePoint1Id: 0, linePoint2Id: 2, angle: 60, id: 8},
+			//&SketchConstraintLineLength{lineId: 4, length: 7, id: 9},
 		},
 	}
 
