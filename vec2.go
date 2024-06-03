@@ -106,3 +106,7 @@ func (v Vec2) clone() Vec2 {
 		y: v.y,
 	}
 }
+
+func (v Vec2) angle() float64 {
+	return math.Atan2(v.y, -v.x)
+}

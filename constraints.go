@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -93,7 +94,7 @@ func (cc *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 			offset = -offset
 		}
 
-		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset*math.Pi/180)
+		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, -offset*math.Pi/180)
 	} else if branch == 2 || branch == 3 { // branch 2 and 3, move corner along one of the lines to reach 90 degrees
 		o1 := linePoint1.position.sub(cornerPoint.position)
 		o2 := linePoint2.position.sub(cornerPoint.position)
@@ -176,8 +177,19 @@ func (c *SketchConstraintCornerAngle) draw(g *Game, screen *ebiten.Image, camera
 		StrokeLine(screen, cp.add(o1), cp.add(o1).add(o2), 1, col)
 		StrokeLine(screen, cp.add(o2), cp.add(o1).add(o2), 1, col)
 	} else {
-		// @TODO
+		center := camera.transformPoint(cornerPoint.position)
+		radius := 20.0
+		angle1 := cornerPoint.position.sub(linePoint1.position).angle()
+		angle2 := cornerPoint.position.sub(linePoint2.position).angle()
+		StrokeArc(screen, center, radius, angle1, angle2, 1, col)
+
+		midPointAngle := (angle1 + angle2) / 2
+
+		mPoint := center.add(Vec2{math.Cos(midPointAngle), math.Sin(midPointAngle)}.mul(radius))
+
+		DrawText(screen, fmt.Sprintf("%.0f°", c.angle), mPoint, col)
 	}
+
 }
 
 type SketchConstraintLineLength struct {
@@ -280,6 +292,8 @@ func (c *SketchConstraintLineLength) draw(g *Game, screen *ebiten.Image, camera 
 
 	g.drawArrow(screen, midPoint, startPosition.add(tangent.mul(offset)).add(direction.mul(2.0)), col, camera)
 	g.drawArrow(screen, midPoint, endPosition.add(tangent.mul(offset)).sub(direction.mul(2.0)), col, camera)
+
+	DrawText(screen, "L="+fmt.Sprintf("%.2f", c.length), midPoint.add(tangent.mul(5)), col)
 }
 
 func (c *SketchConstraintLineLength) getId() int {

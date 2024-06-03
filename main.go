@@ -283,6 +283,25 @@ func StrokeLine(screen *ebiten.Image, p1, p2 Vec2, thickness float32, c color.Co
 	vector.StrokeLine(screen, float32(p1.x), float32(p1.y), float32(p2.x), float32(p2.y), thickness, c, true)
 }
 
+func StrokeArc(screen *ebiten.Image, p Vec2, radius, startAngle, endAngle float64, thickness float32, c color.Color) {
+	p = Vec2{p.x, screenHeight - p.y}
+
+	// draw arc using StrokeLine segments
+	segments := 5
+
+	for i := 0; i < segments; i++ {
+		angle1 := startAngle + (endAngle-startAngle)*float64(i)/float64(segments)
+		angle2 := startAngle + (endAngle-startAngle)*float64(i+1)/float64(segments)
+
+		x1 := p.x + radius*math.Cos(angle1)
+		y1 := p.y + radius*math.Sin(angle1)
+		x2 := p.x + radius*math.Cos(angle2)
+		y2 := p.y + radius*math.Sin(angle2)
+
+		StrokeLine(screen, Vec2{x1, screenHeight - y1}, Vec2{x2, screenHeight - y2}, thickness, c)
+	}
+}
+
 type Sketch struct {
 	elements    []SketchElement
 	constraints []SketchConstraint
@@ -308,6 +327,11 @@ func (s *Sketch) getConstraints() []SketchConstraint {
 
 func (s *Sketch) attemptApplyConstraints(g *Game) {
 	constraints := s.getConstraints()
+
+	// shuffle the constraints
+	/*rand.Shuffle(len(constraints), func(i, j int) {
+		constraints[i], constraints[j] = constraints[j], constraints[i]
+	})*/
 
 	// int array to store the number of branches for each constraint
 	branches := make([]int, len(constraints))
@@ -388,26 +412,49 @@ func (s *Sketch) attemptApplyConstraints(g *Game) {
 }
 
 func main() {
+	initFonts()
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Unholy CAD")
 
+	// square shape
+	/*
+		sketch := Sketch{
+			elements: []SketchElement{
+				&SketchPoint{position: Vec2{1, 1}, id: 0},
+				&SketchPoint{position: Vec2{1, 10}, id: 1},
+				&SketchPoint{position: Vec2{10, 10}, id: 2},
+				&SketchPoint{position: Vec2{10, 1}, id: 3},
+				&SketchPoint{position: Vec2{5, 5}, id: 4},
+
+				&SketchLine{startId: 0, endId: 1, id: 5},
+				&SketchLine{startId: 1, endId: 2, id: 6},
+				&SketchLine{startId: 2, endId: 3, id: 7},
+				&SketchLine{startId: 3, endId: 0, id: 8},
+
+				&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
+				//&SketchConstraintLineLength{lineId: 8, length: 8, id: 12},
+				// &SketchConstraintCornerAngle{cornerPointId: 0, linePoint1Id: 3, linePoint2Id: 1, angle: 45, id: 10},
+				&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
+				&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
+			},
+		}
+	*/
+
+	// triangle shape
 	sketch := Sketch{
 		elements: []SketchElement{
 			&SketchPoint{position: Vec2{1, 1}, id: 0},
 			&SketchPoint{position: Vec2{1, 10}, id: 1},
 			&SketchPoint{position: Vec2{10, 10}, id: 2},
-			&SketchPoint{position: Vec2{10, 1}, id: 3},
-			&SketchPoint{position: Vec2{5, 5}, id: 4},
 
-			&SketchLine{startId: 0, endId: 1, id: 5},
-			&SketchLine{startId: 1, endId: 2, id: 6},
-			&SketchLine{startId: 2, endId: 3, id: 7},
-			&SketchLine{startId: 3, endId: 0, id: 8},
+			&SketchLine{startId: 0, endId: 1, id: 3},
+			&SketchLine{startId: 1, endId: 2, id: 4},
+			&SketchLine{startId: 2, endId: 0, id: 5},
 
-			&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
-			// &SketchConstraintLineLength{lineId: 8, length: 8, id: 12},
-			&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
-			&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
+			///&SketchConstraintLineLength{lineId: 3, length: 6, id: 6},
+			&SketchConstraintCornerAngle{cornerPointId: 0, linePoint1Id: 2, linePoint2Id: 1, angle: 60, id: 7},
+			&SketchConstraintCornerAngle{cornerPointId: 1, linePoint1Id: 0, linePoint2Id: 2, angle: 60, id: 8},
+			//&SketchConstraintLineLength{lineId: 4, length: 7, id: 9},
 		},
 	}
 
