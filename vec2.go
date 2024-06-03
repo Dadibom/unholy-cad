@@ -58,6 +58,15 @@ func (v Vec2) magnitude() float64 {
 	return math.Sqrt(v.x*v.x + v.y*v.y)
 }
 
+func (v Vec2) rotate(angle float64) Vec2 {
+	sin := math.Sin(angle)
+	cos := math.Cos(angle)
+	return Vec2{
+		x: v.x*cos - v.y*sin,
+		y: v.x*sin + v.y*cos,
+	}
+}
+
 func (v Vec2) rotateAround(origin Vec2, angle float64) Vec2 {
 	sin := math.Sin(angle)
 	cos := math.Cos(angle)

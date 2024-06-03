@@ -61,31 +61,32 @@ func (c *SketchConstraintCornerAngle) isSatisfied(g *Game) bool {
 
 func (c *SketchConstraintCornerAngle) getBranches() int {
 	if c.angle == 90 { // @TODO support other angles
-		return 4
+		return 6
 	}
 	return 2
 }
 
-func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
-	cornerPoint, err := getSketchElementByID[*SketchPoint](g, c.cornerPointId)
+func (cc *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
+	cornerPoint, err := getSketchElementByID[*SketchPoint](g, cc.cornerPointId)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	linePoint1, err := getSketchElementByID[*SketchPoint](g, c.linePoint1Id)
+	linePoint1, err := getSketchElementByID[*SketchPoint](g, cc.linePoint1Id)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	linePoint2, err := getSketchElementByID[*SketchPoint](g, c.linePoint2Id)
+	linePoint2, err := getSketchElementByID[*SketchPoint](g, cc.linePoint2Id)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	currentAngle := c.GetCurrentAngle(g)
-	offset := c.angle - currentAngle
+	currentAngle := cc.GetCurrentAngle(g)
+	offset := cc.angle - currentAngle
 
 	if branch == 0 || branch == 1 {
+		// rotate one of the lines around the corner point
 		pointToRotate := linePoint1
 		if branch == 1 {
 			pointToRotate = linePoint2
@@ -93,7 +94,7 @@ func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 		}
 
 		pointToRotate.position = pointToRotate.position.rotateAround(cornerPoint.position, offset*math.Pi/180)
-	} else { // branch 2 and 3, move corner along one of the lines to reach 90 degrees
+	} else if branch == 2 || branch == 3 { // branch 2 and 3, move corner along one of the lines to reach 90 degrees
 		o1 := linePoint1.position.sub(cornerPoint.position)
 		o2 := linePoint2.position.sub(cornerPoint.position)
 		if branch == 2 {
@@ -111,6 +112,27 @@ func (c *SketchConstraintCornerAngle) apply(g *Game, branch int) bool {
 			}
 			cornerPoint.position = cornerPoint.position.add(o2.normalize().mul(mag))
 		}
+	} else if branch == 4 || branch == 5 {
+		// rotate the corner around one of the lines
+		// A = corner, B = pivot, C = third point
+		// rotate A around B
+		A := cornerPoint.position
+		B := linePoint1.position
+		C := linePoint2.position
+		if branch == 5 {
+			B = linePoint2.position
+			C = linePoint1.position
+		}
+
+		c := B.sub(A).magnitude()
+		a := C.sub(B).magnitude()
+
+		radians := cc.angle * math.Pi / 180
+		
+		// get the required length of the line between A and C to make the desired corner angle
+		b := math.Sqrt(a*a + c*c - 2*a*c*math.Cos(radians))
+
+		cornerPoint.position = C.sub(B).normalize().rotate(math.Pi/2).mul(b).add(B) // @TODO could make this negative too
 	}
 
 	return true

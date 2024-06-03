@@ -348,6 +348,9 @@ func (s *Sketch) attemptApplyConstraints(g *Game) {
 			branch := currentBranches[i]
 			//log.Printf("Applying constraint %d with branch %d", constraint.getId(), branch)
 			constraint.apply(g, branch)
+			if !constraint.isSatisfied(g) {
+				// @todo: log error, constaint branch did not satisfy	
+			}
 		}
 
 		// check if any constraints are violated
@@ -402,7 +405,7 @@ func main() {
 			&SketchLine{startId: 3, endId: 0, id: 8},
 
 			&SketchConstraintLineLength{lineId: 5, length: 6, id: 9},
-			//&SketchConstraintLineLength{lineId: 8, length: 8, id: 12},
+			// &SketchConstraintLineLength{lineId: 8, length: 8, id: 12},
 			&SketchConstraintCornerAngle{cornerPointId: 2, linePoint1Id: 1, linePoint2Id: 3, angle: 90, id: 10},
 			&SketchConstraintCornerAngle{cornerPointId: 3, linePoint1Id: 2, linePoint2Id: 0, angle: 90, id: 11},
 		},
